@@ -77,6 +77,7 @@ class Gmres : public MethIterative
     Eigen::SparseMatrix<double> _Qm;
     Eigen::SparseMatrix<double> _Rm;
     double _beta;
+    int _Krylov;
   public:
     const Eigen::SparseMatrix<double> & GetHm() const;
     const Eigen::SparseMatrix<double> & GetVm() const;

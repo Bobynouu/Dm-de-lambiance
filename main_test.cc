@@ -8,8 +8,8 @@ int main()
   int userChoiceMeth(0);
   int n_ite_max(200000);
   double eps(0.01);
-  int const N(24);
-  double alpha(3*N);
+  int const N(300);
+  double alpha(3);
   string name_file;
 
   cout << "Veuillez choisir la méthode de résolution pour Ax=b:" << endl;
@@ -65,7 +65,7 @@ for (int i =0 ; i< N; i++)
   VectorXd x0(N);
   for( int i = 0 ; i < N ; ++i)
   {
-    x0.coeffRef(i)=1.;
+    x0.coeffRef(i)=2.;
   }
 
   int n_ite(0);
@@ -188,8 +188,11 @@ for (int i =0 ; i< N; i++)
         // cout << "An = " << An <<endl;
         // cout << "residu = " <<gmrs.GetResidu()<<endl;
         gmrs.Arnoldi(An, gmrs.GetResidu()); // check le remplissage de la SparseMatrix
-        //cout << "HM " << gmrs.GetHm().rows() << gmrs.GetHm().cols() << endl;
+        //cout << "VM = " << gmrs.GetVm() << endl;
+        //cout << "--------------------" << endl;
+        //cout << "HM = " << gmrs.GetHm() << endl;
         gmrs.Givens(gmrs.GetHm()); // attention renvoi Rm et Qm de taille carré
+
         gmrs.Advance(gmrs.GetResidu());
 
         n_ite++;

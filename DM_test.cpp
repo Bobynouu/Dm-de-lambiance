@@ -157,6 +157,7 @@ void Gmres::Initialize(VectorXd x0, VectorXd b)
   _b = b;
   _r = _b - _A*_x;
   _beta = _r.norm();
+  _Krylov = 10;
 
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj.txt");  //commande pour modifier le nom de chaque fichier
@@ -167,9 +168,9 @@ void Gmres::Initialize(VectorXd x0, VectorXd b)
 void Gmres::Arnoldi( SparseMatrix<double> A , VectorXd v)
 {
   //dimension de l'espace
-  int m = v.size();
+  int m = _Krylov;
 
-  _Vm.resize(m, m+1);
+  _Vm.resize(v.size(), m+1);
 
   vector< SparseVector<double> > Vm ;
   SparseVector<double> v1 , s1 ;
@@ -180,28 +181,29 @@ void Gmres::Arnoldi( SparseMatrix<double> A , VectorXd v)
   _Hm.setZero();
 
   vector< SparseVector<double> > z;
-  z.resize(v.size());
+  z.resize(_Krylov);
   Vm.resize(m+1);
   Vm[0]= v1/v1.norm();
-
+  cout << (A*Vm[0]).size() << endl;
   for (int j=0 ; j<m ; j++)
     {SparseVector<double> Av = A*Vm[j];
       s1.setZero();
-        for(int i=0 ; i<j ; i++)
+
+        for(int i=0 ; i<j+1 ; i++)
         {
 
           _Hm.coeffRef(i,j) = Av.dot(Vm[i]);
-          s1 +=  _Hm.coeffRef(i,j)*Vm[i];
-
+          s1 = s1 + _Hm.coeffRef(i,j)*Vm[i];
         }
       z[j] = Av - s1;
       _Hm.coeffRef(j+1,j) = z[j].norm();
     if(_Hm.coeffRef(j+1,j) == 0.)
-    {   break;}
+    {   exit(0);}
+
     Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j);
   }
 
-  for(int i=0; i<m; i++)
+  for(int i=0; i<v.size(); i++)
   {
     for (int j=0; j<m+1; j++)
     {_Vm.coeffRef(i,j) = Vm[j].coeffRef(i);}
@@ -261,10 +263,10 @@ const SparseMatrix<double> & Gmres::GetHm() const
 
 void Gmres::Advance(VectorXd z)
 {
-  VectorXd gm_barre(_Qm.rows()), gm(z.size()), y(z.size()), vect(_Qm.rows());
-  SparseMatrix<double> Rm_pas_barre(z.size(), z.size());
+  VectorXd gm_barre(_Qm.rows()), gm(_Krylov), y(_Krylov), vect(_Qm.rows());
+  SparseMatrix<double> Rm_pas_barre(_Rm.cols(), _Rm.cols());
   SparseMatrix<double> Vm;
-  Vm.resize(z.size(), z.size());
+  Vm.resize(z.size(), _Krylov);
 
   gm.setZero();
   gm_barre.setZero();
@@ -273,18 +275,22 @@ void Gmres::Advance(VectorXd z)
   for (int i=0; i<_Qm.rows(); i++)
   {
     gm_barre[i] = _Qm.coeffRef(0,i);
-    vect[i] = _Qm.coeffRef(i,z.size());
+    vect[i] = _Qm.coeffRef(i,_Krylov);
   }
 
   gm_barre = z.norm()*gm_barre;
 
-  for (int i=0; i<z.size(); i++)
+  for (int i=0; i<_Krylov; i++)
   {
     gm[i] = gm_barre[i];
-    for (int j=0; j<z.size(); j++)
+
+    for (int j=0; j<_Krylov; j++)
     {
       Rm_pas_barre.coeffRef(i,j) = _Rm.coeffRef(i,j);
-      Vm.coeffRef(i,j) = _Vm.coeffRef(i,j);
+    }
+    for (int j=0; j<Vm.rows(); j++)
+    {
+      Vm.coeffRef(j,i) = _Vm.coeffRef(j,i);
     }
   }
 
@@ -292,10 +298,11 @@ void Gmres::Advance(VectorXd z)
 
   _x = _x + Vm*y;
 
-  _r = gm_barre[z.size()]*_Vm*vect;
-  _beta = abs(gm_barre[z.size()]);
+  _r = gm_barre[_Krylov]*_Vm*vect;
+
+  _beta = abs(gm_barre[_Krylov]);
     //cout << " r = " << _r << endl;
-    cout << "gm+1 " << gm_barre[_r.size()] << endl;
+    cout << "gm+1 " << gm_barre[_Krylov] << endl;
     cout <<"norme de r " << _r.norm() << endl;
   // cout << "juste après l'affectation de r dans advance" << endl;
   //

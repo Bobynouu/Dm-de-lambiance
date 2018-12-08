@@ -8,7 +8,7 @@ int main()
   int userChoiceMeth(0);
   int n_ite_max(200000);
   double eps(0.01);
-  int const N(25);
+  int const N(5);
   double alpha(3*N);
   string name_file;
 
@@ -16,6 +16,8 @@ int main()
   cout << "1) Méthode du Résidu Minimum" << endl;
   cout << "2) Méthode du Gradient Conjugué" << endl;
   cout << "3) Méthode SGS" << endl;
+  cout << "4) Méthode Gmres" << endl;
+  cout << "5) Méthode Gradient conjugué préconditionné" << endl;
   cin >> userChoiceMeth;
 
 //création d'une matrice de la forme souhaitée
@@ -73,9 +75,13 @@ for (int i =0 ; i< N; i++)
   // on construit le residu minimum
   MethIterative* MethIterate(0);
   Gmres gmrs;
+  GradientConPrecond gradprecond;
 
   ofstream mon_flux; // Contruit un objet "ofstream"
 
+  // pour gradient conjugué preconditionné
+  SparseLU <SparseMatrix<double>> solver_xnew;
+  VectorXd X_Sol;
 
   switch(userChoiceMeth)
   {
@@ -203,6 +209,61 @@ for (int i =0 ; i< N; i++)
       cout <<"    "<<endl;
       cout << "nb d'itérations pour SGS = " << n_ite << endl;
       break;
+
+      case 5:
+        //MethIterate = new GradientConPrecond();
+        //MethIterate->MatrixInitialize(An);
+        //MethIterate->Initialize(x0, b);
+        gradprecond.MatrixInitialize(An);
+        gradprecond.Initialize(x0,b);
+
+        name_file = "sol"+to_string(N)+"_grad_conj_precond.txt";
+        mon_flux.open(name_file);
+        cout << "avant le while" << endl;
+
+        while(gradprecond.GetResidu().norm() > eps && n_ite < n_ite_max)
+        {
+          VectorXd U, V, W;
+          U.resize(An.cols()),V.resize(An.cols()),W.resize(An.cols());
+          SparseLU <SparseMatrix<double>> solver_u, solver_z;
+
+          cout << " _M_grad dans le while = "<< gradprecond.Get_M()<< endl;
+
+          solver_u.compute(gradprecond.Get_M());
+          cout << "apres la premiere resolution LU"<< endl;
+          U = solver_u.solve(gradprecond.Getp());
+          V = An*U;
+          W = An.transpose()*V;
+          cout << "avant les points chelou" << endl;
+          solver_z.compute(gradprecond.Get_M().transpose());
+          z = solver_z.solve(W);
+
+          gradprecond.Advance(z);
+          n_ite++;
+          if(mon_flux)
+            {
+                mon_flux<<n_ite<<" "<<gradprecond.GetResidu().norm()<<endl;
+            }
+        }
+
+        if (n_ite > n_ite_max)
+          {cout << "Tolérance non atteinte"<<endl;}
+// on a dans get iterate solution y = Mx il faut resoudre pour avoir x
+        //VectorXd X_Sol;
+        X_Sol.resize(An.cols());
+      //  SparseLU <SparseMatrix<double>> solver_xnew;
+        solver_xnew.compute(gradprecond.Get_M());
+        X_Sol = solver_xnew.solve(gradprecond.GetIterateSolution());
+
+        cout <<"  "<<endl;   // d'après doc internet si x0 est trop éloigné de x les résultats ne converge plus
+        cout <<"x avec grad_conj_precond = "<<endl << X_Sol <<endl;
+        cout <<"    "<<endl;
+        cout << An*X_Sol<<endl;
+        cout <<"    "<<endl;
+        cout << "nb d'itérations pour grad conj preconditionné = " << n_ite << endl;
+
+        break;
+
 
     default:
       cout << "Ce choix n'est pas possible" << endl;

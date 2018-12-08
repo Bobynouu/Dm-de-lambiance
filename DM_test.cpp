@@ -306,8 +306,8 @@ void Gmres::Advance(VectorXd z)
   _r = gm_barre[z.size()]*_Vm*vect;
   _beta = abs(gm_barre[z.size()]);
     //cout << " r = " << _r << endl;
-    cout << "gm+1 " << gm_barre[_r.size()] << endl;
-    cout <<"norme de r " << _r.norm() << endl;
+    cout << "gm+1" << gm_barre[_r.size()] << endl;
+    cout <<"norme de r" << _r.norm() << endl;
   // cout << "juste après l'affectation de r dans advance" << endl;
   //
   // cout << "_vm = "<< _Vm << endl;
@@ -317,6 +317,63 @@ const double & Gmres::GetNorm() const
   return _beta;
 }
 
+/////////////////////Gradient conjugué préconditionné question 4d
+void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
+{
+  _x = x0;
+              
+
+  ofstream mon_flux; // Contruit un objet "ofstream"
+  string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj_precond.txt");  //commande pour modifier le nom de chaque fichier
+  mon_flux.open(name_file,ios::out);
+
+  _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
+  _M_grad.resize(_x.size(),_x.size());
+  _D.setZero(); _F.setZero(); _E.setZero();
+  for (int i =0; i<_x.size(); i++)
+  {
+    _D.coeffRef(i,i) = _A.coeffRef(i,i);
+    _D_inv.coeffRef(i,i) = 1./_A.coeffRef(i,i);
+
+    for(int j = 0; j<_x.size(); j++)
+    {
+      if (j>i)
+      {_F.coeffRef(i,j) = - _A.coeffRef(i,j);}
+
+      else if (j<i)
+      {_E.coeffRef(i,j) = - _A.coeffRef(i,j);}
+    }
+
+  }
+  _M_grad = (_D - _E)*_D_inv*(_D - _F);
+  cout << "avant que je fasse de la merde" << endl;
+  _b = _M_grad.transpose()*_A*b;
+  _r = _b - _A*_x;
+  _p = _r;                   // utile pour le GradientConj
+
+
+}
+
+const SparseMatrix<double> & GradientConPrecond::Get_M() const
+{
+
+  //cout <<"_M_grad dans le get" <<_M_grad << endl;
+  return _M_grad;
+}
+
+
+void GradientConPrecond::Advance(Eigen::VectorXd z)
+{
+  double alpha , gamma, stock_r;
+
+  stock_r = _r.dot(_r);
+
+  alpha   =  _r.dot(_r)/(z.dot(_p));
+  _x +=  alpha*_p ;
+  _r += - alpha*z ;
+  gamma = _r.dot(_r)/stock_r;
+  _p = _r + gamma*_p;
+}
 
 ///////////////////// Fonctions hors classe ///////////////////////
 VectorXd GetSolTriangSup(SparseMatrix<double> U, VectorXd b)

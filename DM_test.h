@@ -86,7 +86,18 @@ class Gmres : public MethIterative
     void Arnoldi(Eigen::SparseMatrix<double> A, Eigen::VectorXd v);
     void Givens(Eigen::SparseMatrix<double> Hm);
 };
+class GradientConPrecond : public MethIterative
+{
+  private:
+// _MP preconditionneur SGS
+  Eigen::SparseMatrix<double> _M_grad;
+  Eigen::SparseMatrix<double>  _D, _D_inv, _E, _F;
+  public:
 
+    void Advance(Eigen::VectorXd z);
+    void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);
+    const Eigen::SparseMatrix<double> & Get_M() const;
+};
 Eigen::VectorXd GetSolTriangSup(Eigen::SparseMatrix<double> U, Eigen::VectorXd b);
 Eigen::VectorXd GetSolTriangInf(Eigen::SparseMatrix<double> L, Eigen::VectorXd b);
 

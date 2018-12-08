@@ -146,29 +146,169 @@ void SGS::Advance(VectorXd z)
 
 /////////////////////// GMRES ////////////////////////////////////////
 
-void Gmres::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
-{}
+void Gmres::Initialize(VectorXd x0, VectorXd b)
+{
+  _x = x0;
+  _b = b;
+  _r = _b - _A*_x;
+  _beta = _r.norm();
 
-vector< SparseVector<double> > & Gmres::GetVm()
-{return _Vm;}
+  ofstream mon_flux; // Contruit un objet "ofstream"
+  string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj.txt");  //commande pour modifier le nom de chaque fichier
+  mon_flux.open(name_file,ios::out);
+}
 
-SparseMatrix<double> & Gmres::GetHm()
-{return _Hm;}
 
+void Gmres::Arnoldi( SparseMatrix<double> A , VectorXd v)
+{
+  //dimension de l'espace
+  int m = v.size();
 
-void Gmres::Advance(VectorXd z)
-{ SparseMatrix<double> Qm , Rm ;
-  SparseQR< SparseMatrix<double, RowMajor>, COLAMDOrdering<int> > qr;
+  _Vm.resize(m, m+1);
 
-  qr.analyzePattern(_Hm);
-  qr.factorize(_Hm);
-  Qm = qr.matrixQ();
-  Rm = qr.matrixR();
+  vector< SparseVector<double> > Vm ;
+  SparseVector<double> v1 , s1 ;
+  s1.resize(v.size());
+  v1 = v.sparseView();
+
+  _Hm.resize( m+1 , m );
+  _Hm.setZero();
+
+  vector< SparseVector<double> > z;
+  z.resize(v.size());
+  Vm.resize(m+1);
+  Vm[0]= v1/v1.norm();
+  cout<<"premiere boucle for avant"<<endl;
+  for (int j=0 ; j<m ; j++)
+    {SparseVector<double> Av = A*Vm[j];
+      s1.setZero();
+    //cout<<"2eme boucle for avant"<<endl;
+        for(int i=0 ; i<j+1 ; i++)
+        {
+
+          _Hm.coeffRef(i,j) = Av.dot(Vm[i]);
+          s1 +=  _Hm.coeffRef(i,j)*Vm[i];
+
+        }
+      z[j] = Av - s1;
+      _Hm.coeffRef(j+1,j) = z[j].norm();
+    if(_Hm.coeffRef(j+1,j) == 0.)
+    {   break;}
+    Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j);
+  }
+  cout<<"3eme boucle for avant"<<endl;
+
+  for(int i=0; i<m; i++)
+  {
+    for (int j=0; j<m+1; j++)
+    {_Vm.coeffRef(i,j) = Vm[j].coeffRef(i);}
+  }
 
 }
 
+
+void Gmres::Givens(SparseMatrix<double> Hm)
+{
+
+// J'ai mis R et Q de taille carré...
+  _Rm = Hm;
+  //cout << Hm << endl;
+  _Qm.resize(Hm.rows(), Hm.rows());
+  //cout << "QM " << _Qm.rows() << _Qm.cols() << endl;
+  _Qm.setIdentity();
+  double c(0.), s(0.), u(0.), v(0.);
+  SparseMatrix<double> Rotation_transposee(Hm.rows(), Hm.rows());
+
+  for (int i=0; i<Hm.rows()-1; i++)
+  {
+    Rotation_transposee.setIdentity();
+    c = _Rm.coeffRef(i,i)/sqrt(_Rm.coeffRef(i,i)*_Rm.coeffRef(i,i) + _Rm.coeffRef(i+1,i)*_Rm.coeffRef(i+1,i));
+    s = -_Rm.coeffRef(i+1,i)/sqrt(_Rm.coeffRef(i,i)*_Rm.coeffRef(i,i) + _Rm.coeffRef(i+1,i)*_Rm.coeffRef(i+1,i));
+    Rotation_transposee.coeffRef(i,i) = c;
+    Rotation_transposee.coeffRef(i+1,i+1) = c;
+    Rotation_transposee.coeffRef(i+1,i) = -s;
+    Rotation_transposee.coeffRef(i,i+1) = s;
+
+    for (int j=i; j<Hm.cols(); j++)
+    {
+      u = _Rm.coeffRef(i,j);
+      v = _Rm.coeffRef(i+1,j);
+      _Rm.coeffRef(i,j) = c*u - s*v;
+      _Rm.coeffRef(i+1,j) = s*u + c*v;
+      //if (j == i)
+      //{cout << "ici " << _Rm.coeffRef(i+1,j) << endl;}
+    }
+
+    _Qm = _Qm*Rotation_transposee;
+    //cout << "Rm rows / cols" << _Rm.rows() << " " << _Rm.cols() << endl;
+  }
+    // cout << "_vm = "<< _Vm << endl;
+}
+
+
+const SparseMatrix<double> & Gmres::GetVm() const
+{
+  return _Vm;
+}
+
+const SparseMatrix<double> & Gmres::GetHm() const
+{
+  return _Hm;
+}
+
+void Gmres::Advance(VectorXd z)
+{
+  VectorXd gm_barre(_Qm.rows()), gm(z.size()), y(z.size()), vect(_Qm.rows());
+  SparseMatrix<double> Rm_pas_barre(z.size(), z.size());
+  SparseMatrix<double> Vm;
+  Vm.resize(z.size(), z.size());
+
+  gm.setZero();
+  gm_barre.setZero();
+  vect.setZero();
+
+  for (int i=0; i<_Qm.rows(); i++)
+  {
+    gm_barre[i] = _Qm.coeffRef(0,i);
+    vect[i] = _Qm.coeffRef(i,z.size());
+  }
+
+  gm_barre = z.norm()*gm_barre;
+
+  for (int i=0; i<z.size(); i++)
+  {
+    gm[i] = gm_barre[i];
+    for (int j=0; j<z.size(); j++)
+    {
+      Rm_pas_barre.coeffRef(i,j) = _Rm.coeffRef(i,j);
+      Vm.coeffRef(i,j) = _Vm.coeffRef(i,j);
+    }
+  }
+
+  y = GetSolTriangSup(Rm_pas_barre, gm);
+
+  _x = _x + Vm*y;
+
+  _r = gm_barre[z.size()]*_Vm*vect;
+  _beta = abs(gm_barre[z.size()]);
+    //cout << " r = " << _r << endl;
+    cout << "gm+1 " << gm_barre[_r.size()] << endl;
+    cout <<"norme de r " << _r.norm() << endl;
+  // cout << "juste après l'affectation de r dans advance" << endl;
+  //
+  // cout << "_vm = "<< _Vm << endl;
+}
+const double & Gmres::GetNorm() const
+{
+  return _beta;
+}
+
+
+///////////////////// Fonctions hors classe ///////////////////////
 VectorXd GetSolTriangSup(SparseMatrix<double> U, VectorXd b)
-{  VectorXd solution(U.rows());
+{
+  VectorXd solution(U.rows());
+
   for (int i=0; i<U.rows(); i++)
   {
     solution[U.rows()-i-1] = b[U.rows()-i-1];
@@ -178,12 +318,12 @@ VectorXd GetSolTriangSup(SparseMatrix<double> U, VectorXd b)
     }
     solution[U.rows()-1-i] = solution[U.rows()-1-i]/U.coeffRef(U.rows()-1-i,U.rows()-1-i);
   }
-  return solution;}
-
-
+  return solution;
+}
 
 VectorXd GetSolTriangInf(SparseMatrix<double> L, VectorXd b)
-{VectorXd solution(L.rows());
+{
+  VectorXd solution(L.rows());
 
   for (int i=0; i<L.rows(); i++)
   {
@@ -194,47 +334,9 @@ VectorXd GetSolTriangInf(SparseMatrix<double> L, VectorXd b)
     }
     solution[i] = solution[i]/L.coeffRef(i,i);
   }
-  return solution;}
-
-
-
-void Gmres::Arnoldi( SparseMatrix<double> A , VectorXd v) //Hm a une ligne de 0 en plus
-{
-  //dimension de l'espace
-  int m = v.size();
-
-  std::vector< Eigen::SparseVector<double> > _Vm ;
-  Eigen::SparseMatrix<double> _Hm;
-
-  SparseVector<double> v1 , s1 ;
-  s1.resize(v.size());
-  v1 = v.sparseView();
-
-  _Hm.resize( m+1 , m );
-  _Hm.setZero();
-
-  vector< SparseVector<double> > z;
-  z.resize(v.size());
-  _Vm.resize(m+1);
-  _Vm[0]= v1/v1.norm();
-
-  for (int j=0 ; j<m ; j++)
-    {SparseVector<double> Av = A*_Vm[j];
-      s1.setZero();
-        for(int i=0 ; i<=j ; i++)
-        {
-          _Hm.coeffRef(i,j) = Av.dot(_Vm[i]);
-          s1 +=  _Hm.coeffRef(i,j)*_Vm[i];
-        }
-      z[j] = Av - s1;
-      _Hm.coeffRef(j+1,j) = z[j].norm();
-
-    if(_Hm.coeffRef(j+1,j) == 0.)
-    {   break;}
-    _Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j);
-    }
-  //  cout<<"Hm = "<<_Hm <<endl;
+  return solution;
 }
+
 
 
 SparseMatrix<double>  MethIterative::create_mat(const string name_file_read, bool sym)
@@ -249,7 +351,7 @@ SparseMatrix<double>  MethIterative::create_mat(const string name_file_read, boo
     mon_flux >> N; //lit le premier mot de la ligne 2 correspond au nombre de lignes
 
     int nonzero_elem;
-    mon_flux >> colonne; //lit le nombre de colonnes (valeur stockée inutilement, je ne savais pas comment lire sans stocker...)
+    mon_flux >> colonne; //lit le nombre de colonnes (valeur stockée inutilement)
     mon_flux >> nonzero_elem; //lit le nombre d'élements non nuls
 
     // Définition de la la matrice A.
@@ -295,10 +397,9 @@ void MethIterative::saveSolution(int N ,string name_file , int n_iter , double r
 
 void  MethIterative::Get_norme_sol()
 { VectorXd Xverif(_x.size());
-  for(int i = 0 ; i<_x.size() ; i++)
-    {Xverif[i]=1.-_x[i];}
+  Xverif = _b-_A*_x;
 
-cout<<"norme de (Xcalc - Xth)  = "<<Xverif.norm()<<endl;}
+cout<<"norme de (b-Ax)  = "<<Xverif.norm()<<endl;}
 
 
 

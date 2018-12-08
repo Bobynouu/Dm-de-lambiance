@@ -72,14 +72,20 @@ class SGS : public MethIterative
 class Gmres : public MethIterative
 {
   private:
-    std::vector< Eigen::SparseVector<double> > _Vm ;
+    Eigen::SparseMatrix<double> _Vm ;
     Eigen::SparseMatrix<double> _Hm;
+    Eigen::SparseMatrix<double> _Qm;
+    Eigen::SparseMatrix<double> _Rm;
+    double _beta;
+    
   public:
-    Eigen::SparseMatrix<double> & GetHm() ;
-    std::vector< Eigen::SparseVector<double> > & GetVm() ;
+    const Eigen::SparseMatrix<double> & GetHm() const;
+    const Eigen::SparseMatrix<double> & GetVm() const;
+    const double & GetNorm() const;
     void Advance(Eigen::VectorXd z);
     void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);
-    void Arnoldi( Eigen::SparseMatrix<double> A , Eigen::VectorXd v);
+    void Arnoldi(Eigen::SparseMatrix<double> A, Eigen::VectorXd v);
+    void Givens(Eigen::SparseMatrix<double> Hm);
 };
 
 Eigen::VectorXd GetSolTriangSup(Eigen::SparseMatrix<double> U, Eigen::VectorXd b);

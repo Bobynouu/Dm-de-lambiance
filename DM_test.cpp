@@ -321,7 +321,7 @@ const double & Gmres::GetNorm() const
 void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
 {
   _x = x0;
-              
+
 
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj_precond.txt");  //commande pour modifier le nom de chaque fichier
@@ -346,8 +346,22 @@ void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
 
   }
   _M_grad = (_D - _E)*_D_inv*(_D - _F);
-  cout << "avant que je fasse de la merde" << endl;
-  _b = _M_grad.transpose()*_A*b;
+
+  // test d'initalisation avec b_precond = M^(-T)*A^(T)*b
+  VectorXd U_ini;
+  U_ini.resize(b.size());
+  U_ini = _A.transpose()*b;
+  SparseLU <SparseMatrix<double>> solver_b;
+  solver_b.compute(_M_grad.transpose());
+  _b = solver_b.solve(U_ini);
+  //resolution LU ok
+  // cout << "verife la resolution LU, affiche U =  "<< endl;
+  // cout << U_ini << endl;
+  // cout << "M.transpose*b " << endl;
+  // cout << _M_grad.transpose()*_b<<endl;
+
+  //initialisation avec les données de l'énoncé
+  //_b = _M_grad.transpose()*_A*b;
   _r = _b - _A*_x;
   _p = _r;                   // utile pour le GradientConj
 

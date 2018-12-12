@@ -71,7 +71,7 @@ void GradientConj::Advance(VectorXd z)
 
   stock_r = _r.dot(_r);
 
-  alpha   =  _r.dot(_r)/(z.dot(_p));
+  alpha   =  stock_r/(z.dot(_p));
   _x +=  alpha*_p ;
   _r += - alpha*z ;
   gamma = _r.dot(_r)/stock_r;
@@ -326,7 +326,7 @@ void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj_precond.txt");  //commande pour modifier le nom de chaque fichier
   mon_flux.open(name_file,ios::out);
-
+//construit le preconditionneur SGS
   _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
   _M_grad.resize(_x.size(),_x.size());
   _D.setZero(); _F.setZero(); _E.setZero();
@@ -346,22 +346,7 @@ void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
 
   }
   _M_grad = (_D - _E)*_D_inv*(_D - _F);
-
-  // test d'initalisation avec b_precond = M^(-T)*A^(T)*b
-  VectorXd U_ini;
-  U_ini.resize(b.size());
-  U_ini = _A.transpose()*b;
-  SparseLU <SparseMatrix<double>> solver_b;
-  solver_b.compute(_M_grad.transpose());
-  _b = solver_b.solve(U_ini);
-  //resolution LU ok
-  // cout << "verife la resolution LU, affiche U =  "<< endl;
-  // cout << U_ini << endl;
-  // cout << "M.transpose*b " << endl;
-  // cout << _M_grad.transpose()*_b<<endl;
-
-  //initialisation avec les données de l'énoncé
-  //_b = _M_grad.transpose()*_A*b;
+  _b = b;
   _r = _b - _A*_x;
   _p = _r;                   // utile pour le GradientConj
 
@@ -371,7 +356,6 @@ void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
 const SparseMatrix<double> & GradientConPrecond::Get_M() const
 {
 
-  //cout <<"_M_grad dans le get" <<_M_grad << endl;
   return _M_grad;
 }
 
@@ -382,7 +366,7 @@ void GradientConPrecond::Advance(Eigen::VectorXd z)
 
   stock_r = _r.dot(_r);
 
-  alpha   =  _r.dot(_r)/(z.dot(_p));
+  alpha   =  stock_r/(z.dot(_p));
   _x +=  alpha*_p ;
   _r += - alpha*z ;
   gamma = _r.dot(_r)/stock_r;

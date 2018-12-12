@@ -7,7 +7,7 @@ int main()
 {
   int userChoiceMeth(0);
   int n_ite_max(200000);
-  double eps(0.01);
+  double eps(0.000001);
   int const N(5);
   double alpha(3*N);
   string name_file;
@@ -211,7 +211,9 @@ for (int i =0 ; i< N; i++)
       break;
 
       case 5:
-
+        //MethIterate = new GradientConPrecond();
+        //MethIterate->MatrixInitialize(An);
+        //MethIterate->Initialize(x0, b);
         gradprecond.MatrixInitialize(An);
         gradprecond.Initialize(x0,b);
 
@@ -233,6 +235,7 @@ for (int i =0 ; i< N; i++)
 
           gradprecond.Advance(z);
           n_ite++;
+          cout <<"norme du residu = " << gradprecond.GetResidu().norm() << endl;
           if(mon_flux)
             {
                 mon_flux<<n_ite<<" "<<gradprecond.GetResidu().norm()<<endl;
@@ -245,13 +248,13 @@ for (int i =0 ; i< N; i++)
         X_Sol.resize(An.cols());
         solver_xnew.compute(gradprecond.Get_M());
         X_Sol = solver_xnew.solve(gradprecond.GetIterateSolution());
-        
+
         cout <<"  "<<endl;   // d'après doc internet si x0 est trop éloigné de x les résultats ne converge plus
         cout <<"x avec grad_conj_precond = "<<endl << X_Sol <<endl;
-        cout <<"    "<<endl;
-        cout << "devrait valoir b :";
+        cout <<"  A*X  "<<endl;
         cout << An*X_Sol<<endl;
-        cout <<"    "<<endl;
+        // cout <<"   b "<<endl;
+        // cout << b << endl;
         cout << "nb d'itérations pour grad conj preconditionné = " << n_ite << endl;
 
         break;

@@ -39,6 +39,7 @@ class MethIterative
     const Eigen::VectorXd & GetResidu() const;
     const Eigen::VectorXd & Getp() const;
     void saveSolution(int N , std::string name_file ,  int n_iter , double residu);
+    Eigen::SparseMatrix<double> create_mat(const std::string name_file_read, bool sym);
 
 
 };
@@ -77,6 +78,7 @@ class Gmres : public MethIterative
     Eigen::SparseMatrix<double> _Qm;
     Eigen::SparseMatrix<double> _Rm;
     double _beta;
+    int _Krylov;
   public:
     const Eigen::SparseMatrix<double> & GetHm() const;
     const Eigen::SparseMatrix<double> & GetVm() const;
@@ -86,20 +88,31 @@ class Gmres : public MethIterative
     void Arnoldi(Eigen::SparseMatrix<double> A, Eigen::VectorXd v);
     void Givens(Eigen::SparseMatrix<double> Hm);
 };
-class GradientConPrecond : public MethIterative
-{
-  private:
-// _MP preconditionneur SGS
-  Eigen::SparseMatrix<double> _M_grad;
-  Eigen::SparseMatrix<double>  _D, _D_inv, _E, _F;
-  public:
 
+
+class Gmresprecond : public MethIterative
+{
+private:
+    Eigen::SparseMatrix<double> _Vm ,_M_sgs , _D,_E,_F, _D_inv ;
+    Eigen::SparseMatrix<double> _Hm;
+    Eigen::SparseMatrix<double> _Qm;
+    Eigen::SparseMatrix<double> _Rm;
+    double _beta;
+    int _Krylov;
+  public:
+    const Eigen::SparseMatrix<double> & GetHm() const;
+    const Eigen::SparseMatrix<double> & GetVm() const;
+    const double & GetNorm() const;
     void Advance(Eigen::VectorXd z);
     void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);
-    const Eigen::SparseMatrix<double> & Get_M() const;
+    void Arnoldi(Eigen::SparseMatrix<double> A, Eigen::VectorXd v);
+    void Givens(Eigen::SparseMatrix<double> Hm);
 };
+
+
 Eigen::VectorXd GetSolTriangSup(Eigen::SparseMatrix<double> U, Eigen::VectorXd b);
 Eigen::VectorXd GetSolTriangInf(Eigen::SparseMatrix<double> L, Eigen::VectorXd b);
+
 
 
 

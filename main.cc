@@ -7,7 +7,7 @@ int main()
 {
   // Initialisation des variables
   int userChoiceMeth(0), MatrixChoice(0.);
-  int n_ite_max(200000000), n_ite(0);
+  int n_ite_max(200000000), n_ite(0), Krylov(10); // Dimension de l'espace de Krylov
   double eps(0.01);
   int N(0);
   double alpha(3.);
@@ -49,7 +49,7 @@ int main()
 
     case 3:
       name_file = "af23560.mtx";
-      sym = true;
+      sym = false;
       N = 23560;
     break;
 
@@ -109,7 +109,7 @@ int main()
 
   // on construit l'objet de la méthode choisie
   MethIterative* MethIterate(0);  // si ce n'est pas GMRes
-  Gmres gmrs;                     // pour la méthode de GMRes
+  Gmres gmrs(Krylov);                     // pour la méthode de GMRes
   GradientConPrecond gradprecond; // Pour la methode du gradient conjugué preconditionné
   // Contruit un objet "ofstream" afin d'écrire dans un fichier
   ofstream mon_flux;
@@ -174,6 +174,11 @@ int main()
 
 ///////////////// Grandient Conjugué /////////////////////
     case 2:
+      if (sym == false)   // si la matrice n'est pas symétrique
+      {
+        cout << "Le gradient conjugué ne fonctionne pas pour des matrices non symétriques !!!" << endl;
+        exit(0.);
+      }
       // Initialisation
       MethIterate = new GradientConj();
       if (MatrixChoice != 5)     // formation de la matrice dans le cas des matrices venant de MatrixMarket

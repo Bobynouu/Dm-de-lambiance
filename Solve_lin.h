@@ -87,6 +87,8 @@ class Gmres : public MethIterative
     double _beta;   // Stock la norme du résidu après une itération
     int _Krylov;    // Dimension de l'espace de Krylov
   public:
+    // COnstructeur
+    Gmres(int Krylov);
     // Récupère la matrice d'Hessenberg
     const Eigen::SparseMatrix<double> & GetHm() const;
     // Récupère la matrice de l'espace de Krylov

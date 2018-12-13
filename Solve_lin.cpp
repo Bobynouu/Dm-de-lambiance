@@ -195,6 +195,9 @@ void SGS::Advance(VectorXd z)
 ///////////////////////////////////////////////////
 ///////////////////// GMRes ///////////////////////
 ///////////////////////////////////////////////////
+Gmres::Gmres(int Krylov)
+{_Krylov = Krylov;}     // On affecte la valeur de la dimension de l'espace de Krylov
+
 void Gmres::Initialize(VectorXd x0, VectorXd b)
 {
   // Initialisation
@@ -202,7 +205,6 @@ void Gmres::Initialize(VectorXd x0, VectorXd b)
   _b = b;
   _r = _b - _A*_x;
   _beta = _r.norm();
-  _Krylov = 10;
 
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_GMRes.txt");  //commande pour modifier le nom de chaque fichier
@@ -341,6 +343,7 @@ const double & Gmres::GetNorm() const
   return _beta;  // Récupère la norme du résidu (rk)
 }
 ///////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////
 ///////// Gradient Conjugué Préconditionné ////////////////////////

@@ -103,6 +103,40 @@ class Gmres : public MethIterative
     void Givens(Eigen::SparseMatrix<double> Hm);
 
 };
+//Class pour le gradient conjugué préconditionné
+class GradientConPrecond : public MethIterative
+{
+  private:
+// _MP preconditionneur SGS
+  Eigen::SparseMatrix<double> _M_grad;
+  Eigen::SparseMatrix<double>  _D, _D_inv, _E, _F;
+  public:
+
+    void Advance(Eigen::VectorXd z);
+    void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);
+    const Eigen::SparseMatrix<double> & Get_M() const;
+};
+// Class Pour le Gmres Preconditionne
+
+
+class Gmresprecond : public MethIterative
+{
+private:
+    Eigen::SparseMatrix<double> _Vm ,_M_sgs , _D,_E,_F, _D_inv ;
+    Eigen::SparseMatrix<double> _Hm;
+    Eigen::SparseMatrix<double> _Qm;
+    Eigen::SparseMatrix<double> _Rm;
+    double _beta;
+    int _Krylov;
+  public:
+    const Eigen::SparseMatrix<double> & GetHm() const;
+    const Eigen::SparseMatrix<double> & GetVm() const;
+    const double & GetNorm() const;
+    void Advance(Eigen::VectorXd z);
+    void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);
+    void Arnoldi(Eigen::SparseMatrix<double> A, Eigen::VectorXd v);
+    void Givens(Eigen::SparseMatrix<double> Hm);
+};
 
 // Résolution d'un système linéaire pour une matrice triangulaire supérieure
 Eigen::VectorXd GetSolTriangSup(Eigen::SparseMatrix<double> U, Eigen::VectorXd b);

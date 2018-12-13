@@ -1,5 +1,5 @@
 #include "Solve_lin.h"  // Inclure le fichier .h
-
+#include <chrono>
 using namespace std;
 using namespace Eigen;
 
@@ -7,7 +7,7 @@ int main()
 {
   // Initialisation des variables
   int userChoiceMeth(0), MatrixChoice(0.);
-  int n_ite_max(200000), n_ite(0);
+  int n_ite_max(200000000), n_ite(0);
   double eps(0.01);
   int N(0);
   double alpha(3.);
@@ -122,10 +122,15 @@ int main()
   // Algorithme de la méthode itérative choisie
   VectorXd z(N);           // Utile à la méthode pour éviter les calculs superflus
 
+  //Mesure du temps de calcul
+  auto start = chrono::high_resolution_clock::now();
+
   switch(userChoiceMeth)
   {
   ///////////////// Résidu Minimum /////////////////////
     case 1:
+
+
       // Initialisation
       MethIterate = new ResiduMin();
       if (MatrixChoice != 5)    // formation de la matrice dans le cas des matrices venant de MatrixMarket
@@ -151,12 +156,13 @@ int main()
       if(n_ite > n_ite_max)
         {cout << "Tolérance non atteinte" << endl;}
 
-      // Vérification de la solution obtenue
+            // Vérification de la solution obtenue
       cout <<"  "<<endl;
       cout<<"norme de b-Ax = "<<Verif_norme(MethIterate->GetIterateSolution() , b , A)<<endl;
       cout <<"    "<<endl;
       cout << "nb d'itérations pour res min = " << n_ite << endl;
       break;
+
 
 ///////////////// Grandient Conjugué /////////////////////
     case 2:
@@ -197,9 +203,13 @@ int main()
       // Initialisation
       MethIterate = new SGS();
       if (MatrixChoice != 5)      // formation de la matrice dans le cas des matrices venant de MatrixMarket
-        {A = MethIterate->create_mat(name_file, sym);}
+        {A = MethIterate->create_mat(name_file, sym);
+        cout << "if"<<endl;}
       MethIterate->MatrixInitialize(A);
+      cout <<" apres matricinitialize" << endl;
       MethIterate->Initialize(x0, b);
+      cout <<" apres initialize" << endl;
+
       name_file = "sol"+to_string(N)+"_SGS.txt";
       mon_flux.open(name_file);
 
@@ -261,6 +271,12 @@ int main()
       cout << "Ce choix n'est pas possible" << endl;
       exit(0);
   }
+  //fin du chrono
+  auto finish = chrono::high_resolution_clock::now();
+  //affichage du temps d'execution en microsecondes
+  double t = chrono::duration_cast<chrono::seconds>(finish-start).count();
+  cout << "Cela a pris : "<< t << " secondes" << endl;
+
 
   // Libération de la mémoire
   delete MethIterate;

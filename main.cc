@@ -100,17 +100,6 @@ int main()
   cin >> userChoiceMeth;
 
 
-  //création de b
-  b.resize(N);
-  for (int i=0; i< N; i++)
-    {b.coeffRef(i) = 1. + i;}
-
-  // creation de x0
-  x0.resize(N);
-  for( int i = 0 ; i < N ; ++i)
-  {
-    x0.coeffRef(i)=2.;
-  }
 
   // on construit l'objet de la méthode choisie
   MethIterative* MethIterate(0);  // si ce n'est pas GMRes
@@ -136,6 +125,19 @@ int main()
       if (MatrixChoice != 5)    // formation de la matrice dans le cas des matrices venant de MatrixMarket
         {A = MethIterate->create_mat(name_file, sym);}
       MethIterate->MatrixInitialize(A);
+
+        // creation de b pour que la solution soit égale à (1,1,...1)
+        x0.resize(N);
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=1.;  }
+        //création de b
+        b.resize(N);
+        b = A*x0;
+        // creation de x0
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=2.; }
+
+
       MethIterate->Initialize(x0, b);
       name_file = "sol"+to_string(N)+"_res_min.txt";
       mon_flux.open(name_file);
@@ -171,6 +173,22 @@ int main()
       if (MatrixChoice != 5)     // formation de la matrice dans le cas des matrices venant de MatrixMarket
         {A = MethIterate->create_mat(name_file, sym);}
       MethIterate->MatrixInitialize(A);
+
+
+        // creation de b pour que la solution soit égale à (1,1,...1)
+        x0.resize(N);
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=1.;  }
+        //création de b
+        b.resize(N);
+        b = A*x0;
+        // creation de x0
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=2.; }
+
+
+
+
       MethIterate->Initialize(x0, b);
       name_file = "sol"+to_string(N)+"_grad_conj.txt";
       mon_flux.open(name_file);
@@ -206,10 +224,20 @@ int main()
         {A = MethIterate->create_mat(name_file, sym);
         cout << "if"<<endl;}
       MethIterate->MatrixInitialize(A);
-      cout <<" apres matricinitialize" << endl;
-      MethIterate->Initialize(x0, b);
-      cout <<" apres initialize" << endl;
 
+        // creation de b pour que la solution soit égale à (1,1,...1)
+        x0.resize(N);
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=1.;  }
+        //création de b
+        b.resize(N);
+        b = A*x0;
+        // creation de x0
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=2.; }
+
+
+      MethIterate->Initialize(x0, b);
       name_file = "sol"+to_string(N)+"_SGS.txt";
       mon_flux.open(name_file);
 
@@ -243,6 +271,18 @@ int main()
         {A = MethIterate->create_mat(name_file, sym);}
 
       gmrs.MatrixInitialize(A);
+
+      // creation de b pour que la solution soit égale à (1,1,...1)
+      x0.resize(N);
+      for( int i = 0 ; i < N ; ++i)
+      {  x0.coeffRef(i)=1.;  }
+      //création de b
+      b.resize(N);
+      b = A*x0;
+      // creation de x0
+      for( int i = 0 ; i < N ; ++i)
+      {  x0.coeffRef(i)=2.; }
+
 
       gmrs.Initialize(x0, b);
       name_file = "sol"+to_string(N)+"_GMRes.txt";

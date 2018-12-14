@@ -307,6 +307,12 @@ int main()
 
         gmrs.Advance(gmrs.GetResidu());  // Itération
         n_ite++;
+         // On sauvgarde la norme du résidu dans un fichier
+        if(mon_flux)
+        {
+          mon_flux<<n_ite<<" "<<MethIterate->GetResidu().norm()<<endl;
+        }
+
       }
       if (n_ite > n_ite_max)
         {cout << "Tolérance non atteinte"<<endl;}

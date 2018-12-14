@@ -195,6 +195,9 @@ void SGS::Advance(VectorXd z)
 ///////////////////////////////////////////////////
 ///////////////////// GMRes ///////////////////////
 ///////////////////////////////////////////////////
+Gmres::Gmres(int Krylov)
+{_Krylov = Krylov;}     // On affecte la valeur de la dimension de l'espace de Krylov
+
 void Gmres::Initialize(VectorXd x0, VectorXd b)
 {
   // Initialisation
@@ -202,7 +205,6 @@ void Gmres::Initialize(VectorXd x0, VectorXd b)
   _b = b;
   _r = _b - _A*_x;
   _beta = _r.norm();
-  _Krylov = 10;
 
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_GMRes.txt");  //commande pour modifier le nom de chaque fichier
@@ -340,6 +342,163 @@ const double & Gmres::GetNorm() const
 {
   return _beta;  // Récupère la norme du résidu (rk)
 }
+///////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////
+///////// Gradient Conjugué Préconditionné ////////////////////////
+///////////////////////////////////////////////////////////////////
+
+void GradientConPrecond::Initialize(Eigen::VectorXd x0, Eigen::VectorXd b)
+{
+  _x = x0;
+
+  ofstream mon_flux; // Contruit un objet "ofstream"
+  string name_file = ("/sol_"+to_string(_x.size())+"_grad_conj_precond.txt");  //commande pour modifier le nom de chaque fichier
+  mon_flux.open(name_file,ios::out);
+//construit le preconditionneur SGS
+  _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
+  _M_grad.resize(_x.size(),_x.size());
+  _D.setZero(); _F.setZero(); _E.setZero();
+  for (int i =0; i<_x.size(); i++)
+  {
+    _D.coeffRef(i,i) = _A.coeffRef(i,i);
+    _D_inv.coeffRef(i,i) = 1./_A.coeffRef(i,i);
+
+    for(int j = 0; j<_x.size(); j++)
+    {
+      if (j>i)
+      {_F.coeffRef(i,j) = - _A.coeffRef(i,j);}
+
+      else if (j<i)
+      {_E.coeffRef(i,j) = - _A.coeffRef(i,j);}
+    }
+
+  }
+  _M_grad = (_D - _E)*_D_inv*(_D - _F);
+  _b = b;
+  _r = _b - _A*_x;
+  _p = _r;                   // utile pour le GradientConj
+
+
+}
+
+const SparseMatrix<double> & GradientConPrecond::Get_M() const
+{
+
+  return _M_grad;
+}
+
+
+void GradientConPrecond::Advance(Eigen::VectorXd z)
+{
+  double alpha , gamma, stock_r;
+
+  stock_r = _r.dot(_r);
+
+  alpha   =  stock_r/(z.dot(_p));
+  _x +=  alpha*_p ;
+  _r += - alpha*z ;
+  gamma = _r.dot(_r)/stock_r;
+  _p = _r + gamma*_p;
+}
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////
+///////////////////// GMRES Preconditionne ///////////////////////
+///////////////////////////////////////////////////////////////////
+
+
+///////////////////// GMRes Preconditionne ///////////////////////
+// void Gmresprecond::Initialize(VectorXd x0, VectorXd b)
+// {
+//   _x = x0;
+//   _b = b;
+//   cout<<_x.size()<<endl;
+//   cout<<_A.rows()<<" "<<_A.cols()<<endl;
+//   _r = _b - _A*_x;
+//   _beta = _r.norm();
+//   _Krylov = 10;
+//
+//   _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
+//   _M_sgs.resize(_x.size(),_x.size());
+//   _D.setZero(); _F.setZero(); _E.setZero();
+//   for (int i =0; i<_x.size(); i++)
+//       {
+//           _D.coeffRef(i,i) = _A.coeffRef(i,i);
+//           _D_inv.coeffRef(i,i) = 1./_A.coeffRef(i,i);
+//
+//    for(int j = 0; j<_x.size(); j++)
+//    {
+//      if (j>i)
+//      {_F.coeffRef(i,j) = - _A.coeffRef(i,j);}
+//
+//      else if (j<i)
+//      {_E.coeffRef(i,j) = - _A.coeffRef(i,j);}
+//    }
+//
+//       }
+//   _M_sgs = (_D - _E)*_D_inv*(_D - _F);
+//
+//   ofstream mon_flux; // Contruit un objet "ofstream"
+//   string name_file = ("/sol_"+to_string(_x.size())+"_Gmres.txt");  //commande pour modifier le nom de chaque fichier
+//   mon_flux.open(name_file,ios::out);
+// }
+//
+//
+// void Gmresprecond::Arnoldi( SparseMatrix<double> A , VectorXd v)
+// {
+//   //dimension de l'espace
+//   int m = _Krylov;
+//
+//   _Vm.resize(v.size(), m+1);
+//
+//   vector< SparseVector<double> > Vm ;
+//   SparseVector<double> v1 , s1 ;
+//   s1.resize(v.size());
+//   v1 = v.sparseView();
+//
+//   _Hm.resize( m+1 , m );
+//   _Hm.setZero();
+//
+//   vector< SparseVector<double> > z;
+//   z.resize(_Krylov);
+//   Vm.resize(m+1);
+//   Vm[0]= v1/v1.norm();
+// //  cout << (A*Vm[0]).size() << endl;
+//   for (int j=0 ; j<m ; j++)
+//     { SparseVector<double> Av; // Av = A*M^-1*Vm[j]
+//       VectorXd Z;
+//       Z.resize(v.size());
+//       SparseLU<SparseMatrix<double>> solveur_z;
+//       solveur_z.compute(_M_sgs);
+//       Z = solveur_z.solve(Vm[j]);
+//       Av= _A*Z;
+//
+//       s1.setZero();
+//
+//         for(int i=0 ; i<j+1 ; i++)
+//         {
+//
+//           _Hm.coeffRef(i,j) = Av.dot(Vm[i]);
+//           s1 = s1 + _Hm.coeffRef(i,j)*Vm[i];
+//         }
+//       z[j] = Av - s1;
+//       _Hm.coeffRef(j+1,j) = z[j].norm();
+//     if(_Hm.coeffRef(j+1,j) == 0.)
+//     {   exit(0);}
+//
+//     Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j);
+//   }
+//
+//   for(int i=0; i<v.size(); i++)
+//   {
+//     for (int j=0; j<m+1; j++)
+//     {_Vm.coeffRef(i,j) = Vm[j].coeffRef(i);}
+//   }
+//
+// }
+
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////

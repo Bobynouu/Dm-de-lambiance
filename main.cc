@@ -10,7 +10,7 @@ int main()
   int n_ite_max(200000000), n_ite(0), Krylov(10); // Dimension de l'espace de Krylov
   double eps(0.01);
   int N(0);
-  double alpha(3.);
+  double alpha(0.);
   SparseMatrix<double> A;
   VectorXd b, x0;
   bool sym;          // indique si la matrice est symétrique(true) ou non(false)
@@ -63,7 +63,7 @@ int main()
       cout << "Donnez moi la dimension de la matrice de la forme alphaIn + Bn*Bn.transpose" << endl;
       cin >> N;
       sym = true;
-      alpha = 3*N;   // Afin d"avoir une matrice Ultra bien conditionnée.
+      alpha = 3.*N;   // Afin d"avoir une matrice Ultra bien conditionnée.
 
       // initialisation de la construction de An
       In.resize(N,N), Bn.resize(N,N), BnTBn.resize(N,N);
@@ -102,7 +102,8 @@ int main()
   cout << "2) Méthode du Gradient Conjugué" << endl;
   cout << "3) Méthode SGS" << endl;
   cout << "4) Méthode GMRes" << endl;
-  cout << "5) Méthode Gradient conjugué préconditionné (ne fonctionne pas)" << endl;
+  cout << "5) Méthode Gradient conjugué préconditionnée (ne fonctionne pas)" << endl;
+  cout << "6) MéthodeGMRes préconditionnée à droite" << endl;
   cin >> userChoiceMeth;
 
 
@@ -111,6 +112,7 @@ int main()
   MethIterative* MethIterate(0);  // si ce n'est pas GMRes
   Gmres gmrs(Krylov);                     // pour la méthode de GMRes
   GradientConPrecond gradprecond; // Pour la methode du gradient conjugué preconditionné
+  Gmresprecond gmrsprecond(Krylov); // POur la méthode GMRes préconditionnée
   // Contruit un objet "ofstream" afin d'écrire dans un fichier
   ofstream mon_flux;
 
@@ -385,6 +387,52 @@ int main()
         cout<<"norme de b-Ax = "<<Verif_norme(gradprecond.GetIterateSolution() , b , A)<<endl;
         break;
 
+      case 6:
+        // Initialisation
+        if (MatrixChoice != 5)   // formation de la matrice dans le cas des matrices venant de MatrixMarket
+          {A = MethIterate->create_mat(name_file, sym);}
+
+        gmrsprecond.MatrixInitialize(A);
+
+        // creation de b pour que la solution soit égale à (1,1,...1)
+        x0.resize(N);
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=1.;  }
+        //création de b
+        b.resize(N);
+        b = A*x0;
+        // creation de x0
+        for( int i = 0 ; i < N ; ++i)
+        {  x0.coeffRef(i)=2.; }
+
+        gmrsprecond.Initialize(x0, b);
+
+        name_file = "sol"+to_string(N)+"_GMRes_precond.txt";
+        mon_flux.open(name_file);
+
+        // Corps du programme
+        while(gmrsprecond.GetNorm() > eps && n_ite < n_ite_max)
+        {
+          gmrsprecond.Arnoldi(A, gmrsprecond.GetResidu()); // on fabrique Hm à partir de AM⁽⁻¹⁾ et du résidu
+
+          gmrsprecond.Givens(gmrsprecond.GetHm());    // On fait la décomposition QR de Hm adaptée aux matrices d'Hessenberg
+
+          gmrsprecond.Advance(gmrsprecond.GetResidu());  // Itération
+          n_ite++;
+           // On sauvgarde la norme du résidu dans un fichier
+          if(mon_flux)
+          {
+            mon_flux<<n_ite<<" "<<gmrsprecond.GetNorm() <<endl;
+          }
+        }
+        if (n_ite > n_ite_max)
+          {cout << "Tolérance non atteinte"<<endl;}
+
+          // Vérification de la solution obtenue
+          cout<<"norme de b-Ax = "<<Verif_norme(gmrsprecond.GetIterateSolution() , b , A)<<endl;
+          cout <<"    "<<endl;
+          cout << "nb d'itérations pour GMRes préconditionnée = " << n_ite << endl;
+        break;
 
 
     default:

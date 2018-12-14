@@ -123,15 +123,15 @@ class GradientConPrecond : public MethIterative
 class Gmresprecond : public MethIterative
 {
 private:
-    Eigen::SparseMatrix<double> _Vm ,_M_sgs , _D,_E,_F, _D_inv ;
+    Eigen::SparseMatrix<double> _Vm, _Wm ,_M_sgs , _D,_E,_F, _D_inv ;
     Eigen::SparseMatrix<double> _Hm;
     Eigen::SparseMatrix<double> _Qm;
     Eigen::SparseMatrix<double> _Rm;
     double _beta;
     int _Krylov;
   public:
+    Gmresprecond(int Krylov);
     const Eigen::SparseMatrix<double> & GetHm() const;
-    const Eigen::SparseMatrix<double> & GetVm() const;
     const double & GetNorm() const;
     void Advance(Eigen::VectorXd z);
     void Initialize(Eigen::VectorXd x0, Eigen::VectorXd b);

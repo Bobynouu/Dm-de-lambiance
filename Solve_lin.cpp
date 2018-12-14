@@ -410,96 +410,183 @@ void GradientConPrecond::Advance(Eigen::VectorXd z)
 
 
 ///////////////////// GMRes Preconditionne ///////////////////////
-// void Gmresprecond::Initialize(VectorXd x0, VectorXd b)
-// {
-//   _x = x0;
-//   _b = b;
-//   cout<<_x.size()<<endl;
-//   cout<<_A.rows()<<" "<<_A.cols()<<endl;
-//   _r = _b - _A*_x;
-//   _beta = _r.norm();
-//   _Krylov = 10;
-//
-//   _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
-//   _M_sgs.resize(_x.size(),_x.size());
-//   _D.setZero(); _F.setZero(); _E.setZero();
-//   for (int i =0; i<_x.size(); i++)
-//       {
-//           _D.coeffRef(i,i) = _A.coeffRef(i,i);
-//           _D_inv.coeffRef(i,i) = 1./_A.coeffRef(i,i);
-//
-//    for(int j = 0; j<_x.size(); j++)
-//    {
-//      if (j>i)
-//      {_F.coeffRef(i,j) = - _A.coeffRef(i,j);}
-//
-//      else if (j<i)
-//      {_E.coeffRef(i,j) = - _A.coeffRef(i,j);}
-//    }
-//
-//       }
-//   _M_sgs = (_D - _E)*_D_inv*(_D - _F);
-//
-//   ofstream mon_flux; // Contruit un objet "ofstream"
-//   string name_file = ("/sol_"+to_string(_x.size())+"_Gmres.txt");  //commande pour modifier le nom de chaque fichier
-//   mon_flux.open(name_file,ios::out);
-// }
-//
-//
-// void Gmresprecond::Arnoldi( SparseMatrix<double> A , VectorXd v)
-// {
-//   //dimension de l'espace
-//   int m = _Krylov;
-//
-//   _Vm.resize(v.size(), m+1);
-//
-//   vector< SparseVector<double> > Vm ;
-//   SparseVector<double> v1 , s1 ;
-//   s1.resize(v.size());
-//   v1 = v.sparseView();
-//
-//   _Hm.resize( m+1 , m );
-//   _Hm.setZero();
-//
-//   vector< SparseVector<double> > z;
-//   z.resize(_Krylov);
-//   Vm.resize(m+1);
-//   Vm[0]= v1/v1.norm();
-// //  cout << (A*Vm[0]).size() << endl;
-//   for (int j=0 ; j<m ; j++)
-//     { SparseVector<double> Av; // Av = A*M^-1*Vm[j]
-//       VectorXd Z;
-//       Z.resize(v.size());
-//       SparseLU<SparseMatrix<double>> solveur_z;
-//       solveur_z.compute(_M_sgs);
-//       Z = solveur_z.solve(Vm[j]);
-//       Av= _A*Z;
-//
-//       s1.setZero();
-//
-//         for(int i=0 ; i<j+1 ; i++)
-//         {
-//
-//           _Hm.coeffRef(i,j) = Av.dot(Vm[i]);
-//           s1 = s1 + _Hm.coeffRef(i,j)*Vm[i];
-//         }
-//       z[j] = Av - s1;
-//       _Hm.coeffRef(j+1,j) = z[j].norm();
-//     if(_Hm.coeffRef(j+1,j) == 0.)
-//     {   exit(0);}
-//
-//     Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j);
-//   }
-//
-//   for(int i=0; i<v.size(); i++)
-//   {
-//     for (int j=0; j<m+1; j++)
-//     {_Vm.coeffRef(i,j) = Vm[j].coeffRef(i);}
-//   }
-//
-// }
+Gmresprecond::Gmresprecond(int Krylov)
+{_Krylov = Krylov;}
+/////////////////////////////////////////////
+void Gmresprecond::Initialize(VectorXd x0, VectorXd b)
+{
+  _x = x0;
+  _b = b;
+  _r = _b - _A*_x;
+  _beta = _r.norm();
 
+  _D.resize(_x.size(),_x.size()), _D_inv.resize(_x.size(),_x.size()), _E.resize(_x.size(),_x.size()), _F.resize(_x.size(),_x.size());
+  _M_sgs.resize(_x.size(),_x.size());
+  _D.setZero(); _F.setZero(); _E.setZero();
+  for (int i =0; i<_x.size(); i++)
+      {
+          _D.coeffRef(i,i) = _A.coeffRef(i,i);
+          _D_inv.coeffRef(i,i) = 1./_A.coeffRef(i,i);
+
+   for(int j = 0; j<_x.size(); j++)
+   {
+     if (j>i)
+     {_F.coeffRef(i,j) = - _A.coeffRef(i,j);}
+
+     else if (j<i)
+     {_E.coeffRef(i,j) = - _A.coeffRef(i,j);}
+   }
+
+      }
+  _M_sgs = (_D - _E)*_D_inv*(_D - _F);   // Matrice de préconditionnement
+
+  ofstream mon_flux; // Contruit un objet "ofstream"
+  string name_file = ("/sol_"+to_string(_x.size())+"_Gmres.txt");  //commande pour modifier le nom de chaque fichier
+  mon_flux.open(name_file,ios::out);
+}
+////////////////////////////////////////////////////
+void Gmresprecond::Arnoldi( SparseMatrix<double> A , VectorXd v)
+{
+  //dimension de l'espace
+  int m = _Krylov;
+  // Initialisation
+  _Vm.resize(v.size(), m+1);    // Matrice Vm de l'espace de Krylov
+  _Wm.resize(v.size(), m+1);    // Matrice Wm préconditionnée de l'espace de Krylov
+  vector< SparseVector<double> > Vm ;  // Vecteur utile au stock des valeurs
+  SparseVector<double> v1 , s1 ;
+  s1.resize(v.size());
+  _Hm.resize( m+1 , m );   // Matrice de Hessenberg
+  _Hm.setZero();
+  vector< SparseVector<double> > z;
+  vector< SparseVector<double> > Wm;  // Matrice contenant la résolution de Wj = M⁽-1)*Vj
+  z.resize(_Krylov);
+  Vm.resize(m+1);
+  Wm.resize(m+1);
+
+  v1 = v.sparseView();
+  Vm[0]= v1/v1.norm(); // On affecte la premier vecteur de la base de Krylov à Vm+1
+
+  // Corps de l'algo d'Arnoldi
+  SparseLU<SparseMatrix<double>> solver1;
+  solver1.compute(_M_sgs);
+
+  for (int j=0 ; j<m ; j++)
+  {
+    Wm[j] = solver1.solve(Vm[j]).sparseView();
+    SparseVector<double> AMv = A*Wm[j];
+    s1.setZero();
+    for(int i=0 ; i<j+1 ; i++)
+    {
+      _Hm.coeffRef(i,j) = AMv.dot(Vm[i]);
+      s1 = s1 + _Hm.coeffRef(i,j)*Vm[i];
+    }
+    z[j] = AMv - s1;
+    _Hm.coeffRef(j+1,j) = z[j].norm();
+    // Si il y a un zéro sur la sous diagonale
+    if(_Hm.coeffRef(j+1,j) == 0.)
+    {   exit(0);}
+
+    Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j); // Afection du J ième vecteur de la base de Krylov
+  }
+  Wm[m] = solver1.solve(Vm[m]).sparseView();
+
+  // Affectation des valeurs à la matrice Vm+1
+  for(int i=0; i<v.size(); i++)
+  {
+    for (int j=0; j<m+1; j++)
+    {
+      _Vm.coeffRef(i,j) = Vm[j].coeffRef(i);
+      _Wm.coeffRef(i,j) = Wm[j].coeffRef(i);
+    }
+  }
+}
 ///////////////////////////////////////////////////
+void Gmresprecond::Givens(SparseMatrix<double> Hm)
+{
+  // Initialisation
+  _Rm = Hm;
+  _Qm.resize(Hm.rows(), Hm.rows());
+  _Qm.setIdentity();
+  double c(0.), s(0.), u(0.), v(0.);
+  SparseMatrix<double> Rotation_transposee(Hm.rows(), Hm.rows());
+
+  // Traitement de R
+  for (int i=0; i<Hm.rows()-1; i++)
+  {
+    // Formation des coefficients de rotation
+    Rotation_transposee.setIdentity();
+    c = _Rm.coeffRef(i,i)/sqrt(_Rm.coeffRef(i,i)*_Rm.coeffRef(i,i) + _Rm.coeffRef(i+1,i)*_Rm.coeffRef(i+1,i));
+    s = -_Rm.coeffRef(i+1,i)/sqrt(_Rm.coeffRef(i,i)*_Rm.coeffRef(i,i) + _Rm.coeffRef(i+1,i)*_Rm.coeffRef(i+1,i));
+    Rotation_transposee.coeffRef(i,i) = c;
+    Rotation_transposee.coeffRef(i+1,i+1) = c;
+    Rotation_transposee.coeffRef(i+1,i) = -s;
+    Rotation_transposee.coeffRef(i,i+1) = s;
+    // Mise à jour de R
+    for (int j=i; j<Hm.cols(); j++)
+    {
+      u = _Rm.coeffRef(i,j);
+      v = _Rm.coeffRef(i+1,j);
+      _Rm.coeffRef(i,j) = c*u - s*v;
+      _Rm.coeffRef(i+1,j) = s*u + c*v;
+    }
+    // Mise à jour de Q
+    _Qm = _Qm*Rotation_transposee;
+  }
+}
+///////////////////////////////////////////////////
+void Gmresprecond::Advance(VectorXd z)
+{
+  // Initialisation
+  VectorXd gm_barre(_Qm.rows()), gm(_Krylov), y(_Krylov), vect(_Qm.rows());
+  SparseMatrix<double> Rm_pas_barre(_Rm.cols(), _Rm.cols());
+  SparseMatrix<double> Wm;
+  Wm.resize(z.size(), _Krylov);  // Wm = M⁻¹*Vm
+  gm.setZero();
+  gm_barre.setZero();
+  vect.setZero();
+
+  for (int i=0; i<_Qm.rows(); i++)
+  {
+    gm_barre[i] = _Qm.coeffRef(0,i); // On forme le vecteur gm_barre
+    vect[i] = _Qm.coeffRef(i,_Krylov); // Vecteur utile pour la mise à jour de rk
+  }
+
+  gm_barre = z.norm()*gm_barre;  // gm_barre recoit sa valeur finale
+
+  for (int i=0; i<_Krylov; i++)
+  {
+    gm[i] = gm_barre[i];   // On extrait gm à partir de gm_barre (on rejette le dernier terme de gm_barre)
+
+    for (int j=0; j<_Krylov; j++)
+    {
+      Rm_pas_barre.coeffRef(i,j) = _Rm.coeffRef(i,j); // On extrait Rm (c'est Rm_barre sans la dernière ligne)
+    }
+    for (int j=0; j<Wm.rows(); j++)
+    {
+      Wm.coeffRef(j,i) = _Wm.coeffRef(j,i); // On extrait Vm à partir de Vm+1
+    }
+  }
+
+  y = GetSolTriangSup(Rm_pas_barre, gm); // Résolution de Rm*y = gm
+
+  _x = _x + Wm*y; // Mise à jour de xk
+
+  _r = gm_barre[_Krylov]*_Vm*vect;  // Mise à jour de rk
+
+  _beta = abs(gm_barre[_Krylov]);  // On extrait la norme de rk
+}
+///////////////////////////////////////////////////
+const double & Gmresprecond::GetNorm() const
+{
+  return _beta;  // Récupère la norme du résidu (rk)
+}
+///////////////////////////////////////////////////
+const SparseMatrix<double> & Gmresprecond::GetHm() const
+{
+  return _Hm;  // Récupère la norme du résidu (rk)
+}
+///////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////
 ///////////////////// Fonctions hors classe ///////////////////////

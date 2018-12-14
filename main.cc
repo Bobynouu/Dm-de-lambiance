@@ -7,7 +7,7 @@ int main()
 {
   // Initialisation des variables
   int userChoiceMeth(0), MatrixChoice(0.);
-  int n_ite_max(200000000), n_ite(0), Krylov(10); // Dimension de l'espace de Krylov
+  int n_ite_max(5000000), n_ite(0);
   double eps(0.01);
   int N(0);
   double alpha(3.);
@@ -16,11 +16,6 @@ int main()
   bool sym;          // indique si la matrice est symétrique(true) ou non(false)
   string name_file;  // nom du fichier contenant la norme des résidus
   SparseMatrix<double> In, Bn, BnTBn;
-
-  // pour gradient conjugué preconditionné
-  SparseLU <SparseMatrix<double>> solver_xnew;
-  VectorXd X_Sol;
-
 
   //Choix de la matrice à utiliser.
   cout<<"Quelle matrice souhaitez-vous ?"<<endl;
@@ -49,12 +44,12 @@ int main()
 
     case 3:
       name_file = "af23560.mtx";
-      sym = false;
+      sym = true;
       N = 23560;
     break;
 
     case 4:
-      name_file = "MCCA.mtx";
+      name_file = "mcca.mtx";
       sym = false;
       N = 180;
     break;
@@ -102,15 +97,14 @@ int main()
   cout << "2) Méthode du Gradient Conjugué" << endl;
   cout << "3) Méthode SGS" << endl;
   cout << "4) Méthode GMRes" << endl;
-  cout << "5) Méthode Gradient conjugué préconditionné (ne fonctionne pas)" << endl;
   cin >> userChoiceMeth;
 
 
 
   // on construit l'objet de la méthode choisie
   MethIterative* MethIterate(0);  // si ce n'est pas GMRes
-  Gmres gmrs(Krylov);                     // pour la méthode de GMRes
-  GradientConPrecond gradprecond; // Pour la methode du gradient conjugué preconditionné
+  Gmres gmrs;                     // pour la méthode de GMRes
+
   // Contruit un objet "ofstream" afin d'écrire dans un fichier
   ofstream mon_flux;
 
@@ -174,11 +168,6 @@ int main()
 
 ///////////////// Grandient Conjugué /////////////////////
     case 2:
-      if (sym == false)   // si la matrice n'est pas symétrique
-      {
-        cout << "Le gradient conjugué ne fonctionne pas pour des matrices non symétriques !!!" << endl;
-        exit(0.);
-      }
       // Initialisation
       MethIterate = new GradientConj();
       if (MatrixChoice != 5)     // formation de la matrice dans le cas des matrices venant de MatrixMarket
@@ -307,6 +296,10 @@ int main()
 
         gmrs.Advance(gmrs.GetResidu());  // Itération
         n_ite++;
+          if(mon_flux)
+        {
+          mon_flux<<n_ite<<" "<<gmrs.GetNorm()<<endl;
+        }
       }
       if (n_ite > n_ite_max)
         {cout << "Tolérance non atteinte"<<endl;}
@@ -316,70 +309,6 @@ int main()
         cout <<"    "<<endl;
         cout << "nb d'itérations pour res min = " << n_ite << endl;
       break;
-
-////////////// Gradient conjugué preconditionné //////////////
-      case 5:
-        // Initialisation
-        if (MatrixChoice != 5)   // formation de la matrice dans le cas des matrices venant de MatrixMarket
-        {A = MethIterate->create_mat(name_file, sym);}
-        gradprecond.MatrixInitialize(A);
-
-        // creation de b pour que la solution soit égale à (1,1,...1)
-        x0.resize(N);
-        for( int i = 0 ; i < N ; ++i)
-        {  x0.coeffRef(i)=1.;  }
-        //création de b
-        b.resize(N);
-        b = A*x0;
-        // creation de x0
-        for( int i = 0 ; i < N ; ++i)
-        {  x0.coeffRef(i)=2.; }
-
-        gradprecond.Initialize(x0,b);
-        name_file = "sol"+to_string(N)+"_grad_conj_precond.txt";
-        mon_flux.open(name_file);
-
-        while(gradprecond.GetResidu().norm() > eps && n_ite < n_ite_max)
-        {
-          cout << "dans le while" << endl;
-          VectorXd U, V, W;
-          U.resize(A.cols()),V.resize(A.cols()),W.resize(A.cols());
-          SparseLU <SparseMatrix<double>> solver_u, solver_z;
-
-          solver_u.compute(gradprecond.Get_M());
-          U = solver_u.solve(gradprecond.Getp());
-          V = A*U;
-          W = A.transpose()*V;
-          solver_z.compute(gradprecond.Get_M().transpose());
-          z = solver_z.solve(W);
-
-          gradprecond.Advance(z);
-          n_ite++;
-          cout <<"norme du residu = " << gradprecond.GetResidu().norm() << endl;
-          if(mon_flux)
-            {
-                mon_flux<<n_ite<<" "<<gradprecond.GetResidu().norm()<<endl;
-            }
-        }
-
-        if (n_ite > n_ite_max)
-          {cout << "Tolérance non atteinte"<<endl;}
-
-      // on a dans get iterate solution y = Mx il faut resoudre pour avoir x
-        X_Sol.resize(A.cols());
-        solver_xnew.compute(gradprecond.Get_M());
-        X_Sol = solver_xnew.solve(gradprecond.GetIterateSolution());
-
-        cout <<"  "<<endl;   // d'après doc internet si x0 est trop éloigné de x les résultats ne converge plus
-        cout <<"x avec grad_conj_precond = "<<endl << X_Sol <<endl;
-        cout <<"  A*X  "<<endl;
-        cout << A*X_Sol<<endl;
-        cout << "nb d'itérations pour grad conj preconditionné = " << n_ite << endl;
-        // Vérification de la solution obtenue
-        cout<<"norme de b-Ax = "<<Verif_norme(gradprecond.GetIterateSolution() , b , A)<<endl;
-        break;
-
-
 
     default:
       cout << "Ce choix n'est pas possible" << endl;

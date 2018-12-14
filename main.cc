@@ -310,7 +310,7 @@ int main()
          // On sauvgarde la norme du résidu dans un fichier
         if(mon_flux)
         {
-          mon_flux<<n_ite<<" "<<MethIterate->GetResidu().norm()<<endl;
+          mon_flux<<n_ite<<" "<<gmrs.GetNorm() <<endl;
         }
 
       }

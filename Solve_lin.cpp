@@ -439,6 +439,8 @@ void Gmresprecond::Initialize(VectorXd x0, VectorXd b)
 
       }
   _M_sgs = (_D - _E)*_D_inv*(_D - _F);   // Matrice de préconditionnement
+  // On en fait la décomposition LU
+  _solver1.compute(_M_sgs);
 
   ofstream mon_flux; // Contruit un objet "ofstream"
   string name_file = ("/sol_"+to_string(_x.size())+"_Gmres.txt");  //commande pour modifier le nom de chaque fichier
@@ -467,12 +469,9 @@ void Gmresprecond::Arnoldi( SparseMatrix<double> A , VectorXd v)
   Vm[0]= v1/v1.norm(); // On affecte la premier vecteur de la base de Krylov à Vm+1
 
   // Corps de l'algo d'Arnoldi
-  SparseLU<SparseMatrix<double>> solver1;
-  solver1.compute(_M_sgs);
-
   for (int j=0 ; j<m ; j++)
   {
-    Wm[j] = solver1.solve(Vm[j]).sparseView();
+    Wm[j] = _solver1.solve(Vm[j]).sparseView();
     SparseVector<double> AMv = A*Wm[j];
     s1.setZero();
     for(int i=0 ; i<j+1 ; i++)
@@ -488,7 +487,7 @@ void Gmresprecond::Arnoldi( SparseMatrix<double> A , VectorXd v)
 
     Vm[j+1] = z[j]/_Hm.coeffRef(j+1,j); // Afection du J ième vecteur de la base de Krylov
   }
-  Wm[m] = solver1.solve(Vm[m]).sparseView();
+  Wm[m] = _solver1.solve(Vm[m]).sparseView();
 
   // Affectation des valeurs à la matrice Vm+1
   for(int i=0; i<v.size(); i++)

@@ -129,6 +129,7 @@ private:
     Eigen::SparseMatrix<double> _Rm;
     double _beta;
     int _Krylov;
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> _solver1;   // Va exécuter la décomposition LU
   public:
     Gmresprecond(int Krylov);
     const Eigen::SparseMatrix<double> & GetHm() const;
